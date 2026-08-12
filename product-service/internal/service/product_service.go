@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/product-service/internal/model"
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
+
 )
 
 type ProductService struct {
@@ -79,10 +80,10 @@ func (s *ProductService) GetProduct(
 }
 
 func (s *ProductService) GetProducts(
-	ctx context.Context,
-) ([]model.Product, error) {
+	ctx context.Context, filters repository.ProductFilters,
+) ([]model.Product, int, error) {
 
-	return s.repository.GetAll(ctx)
+	return s.repository.GetAll(ctx, filters)
 }
 
 func (s *ProductService) UpdateProduct(

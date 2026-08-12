@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,7 +16,7 @@ import (
 type ProductRepository interface {
 	Create(ctx context.Context, product *model.Product) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Product, error)
-	GetAll(ctx context.Context) ([]model.Product, error)
+	GetAll(ctx context.Context, filters ProductFilters) ([]model.Product, int, error)
 	Update(ctx context.Context, product *model.Product) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -122,7 +124,76 @@ func (r *PostgresProductRepository) GetByID(
 
 func (r *PostgresProductRepository) GetAll(
 	ctx context.Context,
-) ([]model.Product, error) {
+	filters ProductFilters,
+) ([]model.Product, int, error) {
+
+	offset := (filters.Page - 1) * filters.Limit
+
+	args := make([]any, 0)
+
+	where := "WHERE 1=1"
+
+	if filters.Search != "" {
+		args = append(args, "%"+filters.Search+"%")
+
+		where += `
+			AND (
+				name ILIKE $` + strconv.Itoa(len(args)) + `
+				OR description ILIKE $` + strconv.Itoa(len(args)) + `
+			)
+		`
+	}
+
+	if filters.Category != "" {
+		args = append(args, filters.Category)
+
+		where += `
+			AND category = $` + strconv.Itoa(len(args)) + `
+		`
+	}
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM products
+		` + where
+
+	var total int
+
+	err := r.db.QueryRow(
+		ctx,
+		countQuery,
+		args...,
+	).Scan(&total)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	sortColumn := "created_at"
+
+	switch filters.Sort {
+	case "name":
+		sortColumn = "name"
+	case "price":
+		sortColumn = "price"
+	case "stock":
+		sortColumn = "stock"
+	case "created_at":
+		sortColumn = "created_at"
+	}
+
+	order := "DESC"
+
+	if strings.EqualFold(filters.Order, "asc") {
+		order = "ASC"
+	}
+
+	args = append(args, filters.Limit)
+	limitPosition := len(args)
+
+	args = append(args, offset)
+	offsetPosition := len(args)
+
 	query := `
 		SELECT
 			id,
@@ -134,13 +205,21 @@ func (r *PostgresProductRepository) GetAll(
 			created_at,
 			updated_at
 		FROM products
-		ORDER BY created_at DESC
-	`
+		` + where + `
+		ORDER BY ` + sortColumn + ` ` + order + `
+		LIMIT $` + strconv.Itoa(limitPosition) + `
+		OFFSET $` + strconv.Itoa(offsetPosition)
 
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.Query(
+		ctx,
+		query,
+		args...,
+	)
+
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
 	defer rows.Close()
 
 	products := make([]model.Product, 0)
@@ -160,17 +239,17 @@ func (r *PostgresProductRepository) GetAll(
 		)
 
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		products = append(products, product)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return products, nil
+	return products, total, nil
 }
 
 func (r *PostgresProductRepository) Update(

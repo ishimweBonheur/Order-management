@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
 	"github.com/ishimweBonheur/order-management/product-service/internal/service"
+
 )
 
 type ProductHandler struct {
@@ -66,16 +68,46 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(product)
 }
 
-func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
-	products, err := h.service.GetProducts(r.Context())
+func (h *ProductHandler) GetProducts(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	filters := parseProductFilters(r)
+
+	products, total, err := h.service.GetProducts(
+		r.Context(),
+		filters,
+	)
+
 	if err != nil {
-		http.Error(w, "failed to get products", http.StatusInternalServerError)
+		WriteError(
+			w,
+			http.StatusInternalServerError,
+			"INTERNAL_SERVER_ERROR",
+			"An internal server error occurred",
+		)
 		return
+	}
+
+	totalPages := 0
+
+	if filters.Limit > 0 {
+		totalPages = (total + filters.Limit - 1) / filters.Limit
+	}
+
+	response := map[string]interface{}{
+		"data": products,
+		"pagination": map[string]interface{}{
+			"page":        filters.Page,
+			"limit":       filters.Limit,
+			"total":       total,
+			"total_pages": totalPages,
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	json.NewEncoder(w).Encode(products)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +218,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
- 
+
 	err = h.service.DeleteProduct(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, repository.ErrProductNotFound) {
@@ -209,4 +241,44 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseProductFilters(r *http.Request) repository.ProductFilters {
+	query := r.URL.Query()
+
+	page := 1
+	limit := 20
+
+	if value := query.Get("page"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			page = parsed
+		}
+	}
+
+	if value := query.Get("limit"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			limit = parsed
+		}
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 20
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	return repository.ProductFilters{
+		Page:     page,
+		Limit:    limit,
+		Search:   query.Get("search"),
+		Category: query.Get("category"),
+		Sort:     query.Get("sort"),
+		Order:    query.Get("order"),
+	}
 }

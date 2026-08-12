@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/ishimweBonheur/order-management/product-service/internal/config"
 	"github.com/ishimweBonheur/order-management/product-service/internal/database"
 	"github.com/ishimweBonheur/order-management/product-service/internal/handler"
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
@@ -17,35 +20,38 @@ import (
 )
 
 func main() {
-	err := godotenv.Load("product-service/.env")
-	if err != nil {
-		log.Println("warning: .env file not found")
-	}
+	_ = godotenv.Load("product-service/.env")
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL is not set in the environment variables")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	ctx := context.Background()
 
-	dbPool, err := database.NewPool(ctx, databaseURL)
+	dbPool, err := database.NewPool(
+		ctx,
+		cfg.DatabaseURL,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer dbPool.Close()
 
 	productRepository := repository.NewPostgresProductRepository(dbPool)
-	productService := service.NewProductService(productRepository)
 
-	productHandler := handler.NewProductHandler(productService)
+	productService := service.NewProductService(
+		productRepository,
+	)
+
+	productHandler := handler.NewProductHandler(
+		productService,
+	)
 
 	router := chi.NewRouter()
+	healthHandler := handler.NewHealthHandler(dbPool)
 
-	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
-	})
+	router.Get("/health", healthHandler.Health)
 
 	router.Route("/products", func(r chi.Router) {
 		r.Post("/", productHandler.CreateProduct)
@@ -55,10 +61,47 @@ func main() {
 		r.Delete("/{id}", productHandler.DeleteProduct)
 	})
 
-	fmt.Println("Product service running on :8080")
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
-	err = http.ListenAndServe(":8080", router)
-	if err != nil {
-		fmt.Println("server error:", err)
+	serverErrors := make(chan error, 1)
+
+	go func() {
+		log.Printf("Product service running on :%s", cfg.Port)
+		serverErrors <- server.ListenAndServe()
+	}()
+
+	shutdown := make(chan os.Signal, 1)
+
+	signal.Notify(
+		shutdown,
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+
+	select {
+	case err := <-serverErrors:
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+
+	case <-shutdown:
+		log.Println("shutdown signal received")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("server shutdown error: %v", err)
 	}
 }
