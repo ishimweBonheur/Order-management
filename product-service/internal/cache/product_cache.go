@@ -24,13 +24,16 @@ func NewProductCache(
 		ttl:    ttl,
 	}
 }
+func productKey(id uuid.UUID) string {
+	return "product:" + id.String()
+}
 
 func (c *ProductCache) Get(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.Product, error) {
 
-	key := "product:" + id.String()
+	key := productKey(id)
 
 	value, err := c.client.Get(ctx, key).Result()
 	if err != nil {
@@ -39,12 +42,10 @@ func (c *ProductCache) Get(
 
 	var product model.Product
 
-	err = json.Unmarshal(
+	if err := json.Unmarshal(
 		[]byte(value),
 		&product,
-	)
-
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
 
