@@ -16,7 +16,7 @@ import (
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
 	"github.com/ishimweBonheur/order-management/product-service/internal/service"
 	"github.com/joho/godotenv"
-
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -71,7 +71,9 @@ func main() {
 	}
 
 	serverErrors := make(chan error, 1)
-
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddr,
+	})
 	go func() {
 		log.Printf("Product service running on :%s", cfg.Port)
 		serverErrors <- server.ListenAndServe()

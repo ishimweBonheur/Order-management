@@ -1,6 +1,6 @@
 package repository
 
-type ProductFilters struct{
+type ProductFilters struct {
 	Page     int
 	Limit    int
 	Search   string

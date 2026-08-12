@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/product-service/internal/model"
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
-
 )
 
 type ProductService struct {
@@ -109,7 +108,7 @@ func (s *ProductService) UpdateProduct(
 	product.UpdatedAt = time.Now()
 
 	return s.repository.Update(ctx, product)
-} 
+}
 
 func (s *ProductService) DeleteProduct(
 	ctx context.Context,

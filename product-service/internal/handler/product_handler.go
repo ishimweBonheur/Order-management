@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/product-service/internal/repository"
 	"github.com/ishimweBonheur/order-management/product-service/internal/service"
-
 )
 
 type ProductHandler struct {

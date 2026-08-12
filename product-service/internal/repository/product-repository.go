@@ -7,10 +7,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/ishimweBonheur/order-management/product-service/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/ishimweBonheur/order-management/product-service/internal/model"
-
 )
 
 type ProductRepository interface {

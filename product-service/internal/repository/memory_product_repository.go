@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/product-service/internal/model"
-
 )
 
 var ErrProductNotFound = errors.New("product not found")
