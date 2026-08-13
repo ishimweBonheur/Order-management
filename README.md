@@ -26,7 +26,7 @@ All service configuration is injected from the ignored root `.env`. Required sta
 | Auth | 8081 | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` |
 | Product | 8082 | CRUD `/products`; writes require an admin JWT; list supports `page`, `limit`, `category`, `search`, `sort`, `order` |
 | Order | 8083 | `POST/GET /orders`, `GET /orders/{id}`, admin list and status routes |
-| Notification | 8084 | Kafka `order.created` consumer, Nodemailer SMTP delivery, and `/health` |
+| Notification | 8084 | Go Kafka `order.created` consumer, go-mail SMTP delivery, and `/health` |
 | API Gateway | 8000 | Single public entry point for all HTTP APIs |
 
 New registrations deliberately receive the `customer` role. Promote a development user using SQL: `UPDATE users SET role='admin' WHERE email='you@example.com';` Public role selection would be a privilege-escalation vulnerability.

@@ -1,9 +1,13 @@
-FROM node:22-alpine
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-COPY src ./src
-ENV NODE_ENV=production
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /notification-api ./cmd/api
+
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates wget
+COPY --from=build /notification-api /notification-api
 EXPOSE 8084
-USER node
-CMD ["node", "src/index.js"]
+USER 65532:65532
+ENTRYPOINT ["/notification-api"]

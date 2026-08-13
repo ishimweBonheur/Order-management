@@ -2,7 +2,7 @@
 
 ## Architecture
 
-Clients enter through the Nginx API Gateway on port 8000. It routes authentication, product, order, and admin URLs to independently built services. Auth, Product, and Order are Go services organized into HTTP handler, business service, repository, model, and infrastructure layers. Notification is intentionally a Node.js service because SMTP delivery uses Nodemailer; it remains independently configured, containerized, health-checked, and event-driven.
+Clients enter through the Nginx API Gateway on port 8000. It routes authentication, product, order, and admin URLs to independently built services. Auth, Product, Order, and Notification are Go services. Notification uses go-mail for SMTP delivery and remains independently configured, containerized, health-checked, and event-driven.
 
 The learning system shares PostgreSQL so an order and its product stock reductions can be committed in one serializable ACID transaction. A strict database-per-service production design would replace this with stock reservations and a saga. PostgreSQL is the source of truth; Redis holds disposable cache, rate-limit, and event-idempotency state.
 
