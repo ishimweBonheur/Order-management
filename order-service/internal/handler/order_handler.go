@@ -51,7 +51,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := h.s.Create(r.Context(), uid, items)
 	if err != nil {
-		api.Error(w, 400, "ORDER_CREATION_FAILED", err.Error())
+		if errors.Is(err, service.ErrInvalidOrder) || errors.Is(err, repository.ErrInsufficientStock) {
+			api.Error(w, http.StatusBadRequest, "ORDER_CREATION_FAILED", "Order items or available stock are invalid")
+		} else {
+			api.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "An internal error occurred")
+		}
 		return
 	}
 	api.JSON(w, 201, o)
@@ -101,7 +105,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := h.s.Status(r.Context(), id, req.Status)
 	if err != nil {
-		api.Error(w, 400, "ORDER_STATUS_UPDATE_FAILED", err.Error())
+		if errors.Is(err, service.ErrInvalidOrder) {
+			api.Error(w, http.StatusBadRequest, "ORDER_STATUS_UPDATE_FAILED", "Order status is invalid")
+		} else if errors.Is(err, repository.ErrNotFound) {
+			api.Error(w, http.StatusNotFound, "ORDER_NOT_FOUND", "Order was not found")
+		} else {
+			api.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "An internal error occurred")
+		}
 		return
 	}
 	api.JSON(w, 200, o)

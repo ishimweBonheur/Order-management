@@ -21,14 +21,14 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	port := getEnv("PORT", "8080")
+	port := os.Getenv("HTTP_PORT")
 
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
 	}
 
-	redisAddr := getEnv("REDIS_URL", "localhost:6379")
+	redisAddr := os.Getenv("REDIS_ADDR")
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisDB := getEnvInt("REDIS_DB", 0)
 
@@ -40,13 +40,10 @@ func Load() (Config, error) {
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		return Config{}, fmt.Errorf("JWT_SECRET is required")
-	}
 
-	kafkaBrokers := []string{"localhost:9092"}
-	if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
-		kafkaBrokers = splitCommaSeparated(brokers)
+	kafkaBrokers := splitCommaSeparated(os.Getenv("KAFKA_BROKERS"))
+	if port == "" || redisAddr == "" || len(kafkaBrokers) == 0 || jwtSecret == "" {
+		return Config{}, fmt.Errorf("HTTP_PORT, REDIS_ADDR, KAFKA_BROKERS, and JWT_SECRET are required")
 	}
 
 	kafkaTopic := getEnv("KAFKA_PRODUCT_TOPIC", "product.events")

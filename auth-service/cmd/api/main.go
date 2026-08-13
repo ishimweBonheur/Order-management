@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/config"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/handler"
@@ -29,6 +30,8 @@ func main() {
 	}
 	h := handler.New(service.New(repository.NewPostgres(db), cfg.JWTSecret, cfg.TokenTTL))
 	r := chi.NewRouter()
+	r.Use(chimiddleware.RequestID, chimiddleware.RealIP, chimiddleware.Recoverer)
+	r.Use(httpserver.RequestLogger("auth-service", logger))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"http://localhost:8080", "http://localhost:3000", "http://localhost:5173"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

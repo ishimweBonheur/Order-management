@@ -2,11 +2,18 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"strings"
 )
+
+func authError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": code, "message": message}})
+}
 
 type contextKey string
 
@@ -39,12 +46,12 @@ func Middleware(secret string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			parts := strings.Fields(r.Header.Get("Authorization"))
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				authError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required")
 				return
 			}
 			claims, err := Parse(secret, parts[1])
 			if err != nil {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				authError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Access token is invalid or expired")
 				return
 			}
 			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
@@ -58,7 +65,7 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			role, ok := Role(r.Context())
 			if !ok {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				authError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required")
 				return
 			}
 			for _, allowed := range roles {
@@ -67,7 +74,7 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 					return
 				}
 			}
-			http.Error(w, "forbidden", http.StatusForbidden)
+			authError(w, http.StatusForbidden, "FORBIDDEN", "Required role is missing")
 		})
 	}
 }

@@ -12,15 +12,9 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	c := Config{Port: env("HTTP_PORT", "8083"), DatabaseURL: os.Getenv("DATABASE_URL"), JWTSecret: os.Getenv("JWT_SECRET"), KafkaTopic: env("KAFKA_ORDER_TOPIC", "order.created"), KafkaBrokers: strings.Split(env("KAFKA_BROKERS", "localhost:9092"), ",")}
-	if c.DatabaseURL == "" || len(c.JWTSecret) < 32 {
-		return Config{}, errors.New("DATABASE_URL and JWT_SECRET are required")
+	c := Config{Port: os.Getenv("HTTP_PORT"), DatabaseURL: os.Getenv("DATABASE_URL"), JWTSecret: os.Getenv("JWT_SECRET"), KafkaTopic: os.Getenv("KAFKA_ORDER_TOPIC"), KafkaBrokers: strings.Split(os.Getenv("KAFKA_BROKERS"), ",")}
+	if c.Port == "" || c.DatabaseURL == "" || len(c.JWTSecret) < 32 || c.KafkaTopic == "" || len(c.KafkaBrokers) == 0 || c.KafkaBrokers[0] == "" {
+		return Config{}, errors.New("HTTP_PORT, DATABASE_URL, JWT_SECRET, KAFKA_ORDER_TOPIC, and KAFKA_BROKERS are required")
 	}
 	return c, nil
-}
-func env(k, d string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return d
 }

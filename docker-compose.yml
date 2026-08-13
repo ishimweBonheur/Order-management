@@ -1,4 +1,18 @@
 services:
+  api-gateway:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      auth-service: {condition: service_healthy}
+      product-service: {condition: service_healthy}
+      order-service: {condition: service_healthy}
   swagger-ui:
     image: swaggerapi/swagger-ui:v5.28.1
     environment:
@@ -11,7 +25,7 @@ services:
     environment:
       POSTGRES_DB: order_management
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development-password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
@@ -21,6 +35,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  database-migrations:
+    image: postgres:17-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./docker/migrations:/migrations:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-h", "postgres", "-U", "app", "-d", "order_management", "-f", "/migrations/001_schema.sql"]
+    depends_on:
+      postgres: {condition: service_healthy}
   redis:
     image: redis:7-alpine
     healthcheck:
@@ -61,43 +84,70 @@ services:
   auth-service:
     build: {context: ./auth-service, dockerfile: Dockerfile}
     environment: &common
-      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-development-password}@postgres:5432/order_management?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-replace-this-development-secret-32-chars}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      HTTP_PORT: ${AUTH_HTTP_PORT:?Set AUTH_HTTP_PORT in .env}
     ports: ["8081:8081"]
-    depends_on: {postgres: {condition: service_healthy}}
-  product-service:
-    build: {context: ./product-service, dockerfile: Dockerfile}
-    environment:
-      <<: *common
-      PORT: "8082"
-      REDIS_URL: redis:6379
-      KAFKA_BROKERS: kafka:29092
-    ports: ["8082:8082"]
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+    depends_on: {database-migrations: {condition: service_completed_successfully}}
+  product-service:
+    build: {context: ./product-service, dockerfile: Dockerfile}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      HTTP_PORT: ${PRODUCT_HTTP_PORT:?Set PRODUCT_HTTP_PORT in .env}
+      REDIS_ADDR: ${REDIS_ADDR:?Set REDIS_ADDR in .env}
+      REDIS_CACHE_TTL: ${REDIS_CACHE_TTL:?Set REDIS_CACHE_TTL in .env}
+      REDIS_DB: ${REDIS_DB:?Set REDIS_DB in .env}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:?Set KAFKA_BROKERS in .env}
+      KAFKA_PRODUCT_TOPIC: ${KAFKA_PRODUCT_TOPIC:?Set KAFKA_PRODUCT_TOPIC in .env}
+      ENVIRONMENT: ${ENVIRONMENT:?Set ENVIRONMENT in .env}
+    ports: ["8082:8082"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on: {database-migrations: {condition: service_completed_successfully}, redis: {condition: service_healthy}}
   order-service:
     build: {context: ./order-service, dockerfile: Dockerfile}
     environment:
-      <<: *common
-      KAFKA_BROKERS: kafka:29092
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      HTTP_PORT: ${ORDER_HTTP_PORT:?Set ORDER_HTTP_PORT in .env}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:?Set KAFKA_BROKERS in .env}
+      KAFKA_ORDER_TOPIC: ${KAFKA_ORDER_TOPIC:?Set KAFKA_ORDER_TOPIC in .env}
     ports: ["8083:8083"]
-    depends_on: {postgres: {condition: service_healthy}, kafka-init: {condition: service_completed_successfully}}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on: {database-migrations: {condition: service_completed_successfully}, kafka-init: {condition: service_completed_successfully}}
   notification-service:
     build: {context: ./notification-service, dockerfile: Dockerfile}
     environment:
-      REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka:29092
+      HTTP_PORT: ${NOTIFICATION_HTTP_PORT:?Set NOTIFICATION_HTTP_PORT in .env}
+      REDIS_ADDR: ${REDIS_ADDR:?Set REDIS_ADDR in .env}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:?Set KAFKA_BROKERS in .env}
+      KAFKA_ORDER_TOPIC: ${KAFKA_ORDER_TOPIC:?Set KAFKA_ORDER_TOPIC in .env}
+      KAFKA_NOTIFICATION_GROUP: ${KAFKA_NOTIFICATION_GROUP:?Set KAFKA_NOTIFICATION_GROUP in .env}
       SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_PORT: ${SMTP_PORT:?Set SMTP_PORT in .env}
+      SMTP_SECURE: ${SMTP_SECURE:?Set SMTP_SECURE in .env}
       SMTP_USER: ${SMTP_USER:?Set SMTP_USER in .env}
       SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}
       EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in .env}
     ports: ["8084:8084"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     depends_on: {redis: {condition: service_healthy}, kafka-init: {condition: service_completed_successfully}}
 volumes:

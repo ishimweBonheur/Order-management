@@ -11,9 +11,13 @@ A learning-oriented Go microservice backend with JWT authentication, PostgreSQL 
 
 Interactive API documentation is available at `http://localhost:8080` while the Compose stack is running. The source of truth is `docs/openapi.yaml`. Use the Swagger UI **Authorize** button with the access token returned by login.
 
+The API gateway is the single client entry point at `http://localhost:8000`; it routes Auth, Product, Order, and admin paths to their internal services and supplies request IDs.
+
 Kafka topics, messages, consumer groups, and broker details can be inspected in Kafka UI at `http://localhost:8090`.
 
 PostgreSQL initialization runs only when its volume is new. To rerun it, remove the Compose volume intentionally with `docker compose down -v` (this deletes local database data).
+
+All service configuration is injected from the ignored root `.env`. Required standard names inside containers are `DATABASE_URL`, `REDIS_ADDR`, `KAFKA_BROKERS`, `JWT_SECRET`, and `HTTP_PORT`; no credential has an application or Compose fallback. The root uses service-specific port variables because four containers cannot share one root `HTTP_PORT`, and Compose maps each one to `HTTP_PORT` inside its service.
 
 ## Services and API
 
@@ -23,6 +27,7 @@ PostgreSQL initialization runs only when its volume is new. To rerun it, remove 
 | Product | 8082 | CRUD `/products`; writes require an admin JWT; list supports `page`, `limit`, `category`, `search`, `sort`, `order` |
 | Order | 8083 | `POST/GET /orders`, `GET /orders/{id}`, admin list and status routes |
 | Notification | 8084 | Kafka `order.created` consumer, Nodemailer SMTP delivery, and `/health` |
+| API Gateway | 8000 | Single public entry point for all HTTP APIs |
 
 New registrations deliberately receive the `customer` role. Promote a development user using SQL: `UPDATE users SET role='admin' WHERE email='you@example.com';` Public role selection would be a privilege-escalation vulnerability.
 
@@ -50,4 +55,6 @@ The parent `Order-management` directory is not a Git repository. Its Compose fil
 
 ## Testing and query analysis
 
-Run `go test ./...`. See `docs/performance.md` for the reproducible 100k-product/500k-order data and `EXPLAIN (ANALYZE, BUFFERS)` procedure. Actual timings must be recorded on the machine/database used; invented benchmark numbers are intentionally not included.
+Run `go test ./...`. See `docs/performance.md` for the reproducible procedure and `docs/performance-results.md` for the recorded 100k-product/500k-order `EXPLAIN (ANALYZE, BUFFERS)` comparison.
+
+See `docs/technical-report.md` for design decisions, security, reliability, operations, and testing coverage.

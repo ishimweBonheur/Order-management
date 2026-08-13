@@ -4,7 +4,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /auth-api ./cmd/api
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates
 COPY --from=build /auth-api /auth-api
+USER 65532:65532
 EXPOSE 8081
 ENTRYPOINT ["/auth-api"]

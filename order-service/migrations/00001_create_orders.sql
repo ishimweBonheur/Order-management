@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE orders (
  id UUID PRIMARY KEY,
- user_id UUID NOT NULL,
+ user_id UUID NOT NULL REFERENCES users(id),
  status VARCHAR(20) NOT NULL CHECK (status IN ('pending','confirmed','processing','completed','cancelled')),
  total_amount NUMERIC(14,2) NOT NULL CHECK (total_amount >= 0),
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -3,6 +3,7 @@ import process from "node:process";
 import Redis from "ioredis";
 import { Kafka, logLevel } from "kafkajs";
 import nodemailer from "nodemailer";
+import { createOrderEmail, validateOrderCreated } from "./message.js";
 
 const required = (name) => {
   const value = process.env[name]?.trim();
@@ -11,11 +12,11 @@ const required = (name) => {
 };
 
 const config = {
-  port: Number(process.env.HTTP_PORT || 8084),
-  redis: process.env.REDIS_ADDR || "localhost:6379",
-  brokers: (process.env.KAFKA_BROKERS || "localhost:9092").split(","),
-  topic: process.env.KAFKA_ORDER_TOPIC || "order.created",
-  group: process.env.KAFKA_NOTIFICATION_GROUP || "notification-service",
+  port: Number(required("HTTP_PORT")),
+  redis: required("REDIS_ADDR"),
+  brokers: required("KAFKA_BROKERS").split(","),
+  topic: required("KAFKA_ORDER_TOPIC"),
+  group: required("KAFKA_NOTIFICATION_GROUP"),
   smtpHost: required("SMTP_HOST"),
   smtpPort: Number(process.env.SMTP_PORT || 587),
   smtpSecure: process.env.SMTP_SECURE === "true",
@@ -36,23 +37,21 @@ const kafka = new Kafka({ clientId: "notification-service", brokers: config.brok
 const consumer = kafka.consumer({ groupId: config.group });
 
 async function handleEvent(event) {
-  if (!event?.event_id || event.event_type !== "order.created" || !event.payload?.admin_email) {
-	throw new Error("invalid order.created event or missing admin_email");
-  }
-  const key = `processed_event:${event.event_id}`;
-  if (await redis.exists(key)) {
-    console.info(JSON.stringify({ message: "duplicate event skipped", event_id: event.event_id }));
-    return;
-  }
-  const amount = Number(event.payload.total_amount).toFixed(2);
-  const delivery = await transporter.sendMail({
-    from: config.emailFrom,
-	to: event.payload.admin_email,
-	subject: `New order ${event.payload.order_id}`,
-	text: `A new order ${event.payload.order_id} was created by user ${event.payload.user_id}. Total: ${amount}. Products: ${event.payload.items?.length || 0}.`,
-	html: `<h2>New order received</h2><p>Order <strong>${event.payload.order_id}</strong> was created by user ${event.payload.user_id}.</p><p>Total: <strong>${amount}</strong></p><p>Products: <strong>${event.payload.items?.length || 0}</strong></p>`,
-  });
-  await redis.set(key, "1", "EX", 7 * 24 * 60 * 60, "NX");
+	validateOrderCreated(event);
+	const key = `processed_event:${event.event_id}`;
+	const reserved = await redis.set(key, "processing", "EX", 300, "NX");
+	if (!reserved) {
+		console.info(JSON.stringify({ message: "duplicate event skipped", event_id: event.event_id }));
+		return;
+	}
+	let delivery;
+	try {
+		delivery = await transporter.sendMail(createOrderEmail(event, config.emailFrom));
+		await redis.set(key, "sent", "EX", 7 * 24 * 60 * 60);
+	} catch (error) {
+		await redis.del(key);
+		throw error;
+	}
   console.info(JSON.stringify({
     message: "order email sent",
     event_id: event.event_id,

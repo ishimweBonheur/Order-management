@@ -1,5 +1,7 @@
 # PostgreSQL performance exercise
 
+Actual recorded results are available in `docs/performance-results.md`. The SQL below remains the reproducible procedure.
+
 Generate data in a disposable database using `generate_series`, run `ANALYZE`, temporarily drop `idx_orders_user_status`, and capture:
 
 ```sql

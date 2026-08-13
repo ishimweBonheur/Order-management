@@ -2,4 +2,4 @@
 
 Independent Go module for user registration, bcrypt password hashing, login, JWT generation, and `GET /auth/me`.
 
-Set `DATABASE_URL`, `JWT_SECRET`, and optionally `HTTP_PORT` (default `8081`). Run `go test ./...` and `go run ./cmd/api`.
+Set the required `HTTP_PORT`, `DATABASE_URL`, and `JWT_SECRET` environment variables. Run `go test ./...` and `go run ./cmd/api`.

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/ishimweBonheur/order-management/order-service/internal/config"
 	"github.com/ishimweBonheur/order-management/order-service/internal/handler"
@@ -30,6 +31,8 @@ func main() {
 	producer := messaging.New(cfg.KafkaBrokers, cfg.KafkaTopic)
 	h := handler.New(service.New(repository.NewPostgres(db), producer))
 	r := chi.NewRouter()
+	r.Use(chimiddleware.RequestID, chimiddleware.RealIP, chimiddleware.Recoverer)
+	r.Use(httpserver.RequestLogger("order-service", logger))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"http://localhost:8080", "http://localhost:3000", "http://localhost:5173"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
