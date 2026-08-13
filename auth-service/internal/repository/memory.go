@@ -52,6 +52,13 @@ func (r *Memory) UpdateRole(_ context.Context, id uuid.UUID, role string) (*mode
 	if !ok {
 		return nil, ErrNotFound
 	}
+	if role == model.RoleAdmin {
+		for otherID, other := range r.users {
+			if otherID != id && other.Role == model.RoleAdmin {
+				return nil, ErrAdminExists
+			}
+		}
+	}
 	u.Role = role
 	u.UpdatedAt = time.Now().UTC()
 	r.users[id] = u

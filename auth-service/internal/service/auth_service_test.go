@@ -62,3 +62,15 @@ func TestAssignRole(t *testing.T) {
 		t.Fatalf("expected invalid role error, got %v", err)
 	}
 }
+
+func TestOnlyOneAdminCanBeAssigned(t *testing.T) {
+	svc := New(repository.NewMemory(), "test-secret-that-is-at-least-32-characters", time.Hour)
+	first, _ := svc.Register(context.Background(), "First", "first@example.com", "password123")
+	second, _ := svc.Register(context.Background(), "Second", "second@example.com", "password123")
+	if _, err := svc.AssignRole(context.Background(), first.ID, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AssignRole(context.Background(), second.ID, "admin"); !errors.Is(err, repository.ErrAdminExists) {
+		t.Fatalf("expected one-admin conflict, got %v", err)
+	}
+}

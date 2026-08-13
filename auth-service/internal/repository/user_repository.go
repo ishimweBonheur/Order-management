@@ -13,6 +13,7 @@ import (
 var (
 	ErrNotFound    = errors.New("user not found")
 	ErrEmailExists = errors.New("email already exists")
+	ErrAdminExists = errors.New("an admin user already exists")
 )
 
 type UserRepository interface {
@@ -50,5 +51,10 @@ func (r *Postgres) ByID(ctx context.Context, id uuid.UUID) (*model.User, error) 
 	return scanUser(r.db.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE id=$1`, id))
 }
 func (r *Postgres) UpdateRole(ctx context.Context, id uuid.UUID, role string) (*model.User, error) {
-	return scanUser(r.db.QueryRow(ctx, `UPDATE users SET role=$2,updated_at=NOW() WHERE id=$1 RETURNING `+userColumns, id, role))
+	u, err := scanUser(r.db.QueryRow(ctx, `UPDATE users SET role=$2,updated_at=NOW() WHERE id=$1 RETURNING `+userColumns, id, role))
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "idx_users_single_admin" {
+		return nil, ErrAdminExists
+	}
+	return u, err
 }

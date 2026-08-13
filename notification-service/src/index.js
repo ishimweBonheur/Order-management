@@ -36,8 +36,8 @@ const kafka = new Kafka({ clientId: "notification-service", brokers: config.brok
 const consumer = kafka.consumer({ groupId: config.group });
 
 async function handleEvent(event) {
-  if (!event?.event_id || event.event_type !== "order.created" || !event.payload?.customer_email) {
-    throw new Error("invalid order.created event or missing customer_email");
+  if (!event?.event_id || event.event_type !== "order.created" || !event.payload?.admin_email) {
+	throw new Error("invalid order.created event or missing admin_email");
   }
   const key = `processed_event:${event.event_id}`;
   if (await redis.exists(key)) {
@@ -47,16 +47,16 @@ async function handleEvent(event) {
   const amount = Number(event.payload.total_amount).toFixed(2);
   const delivery = await transporter.sendMail({
     from: config.emailFrom,
-    to: event.payload.customer_email,
-    subject: `Order ${event.payload.order_id} received`,
-    text: `Your order ${event.payload.order_id} was created successfully. Total: ${amount}.`,
-    html: `<h2>Order received</h2><p>Your order <strong>${event.payload.order_id}</strong> was created successfully.</p><p>Total: <strong>${amount}</strong></p>`,
+	to: event.payload.admin_email,
+	subject: `New order ${event.payload.order_id}`,
+	text: `A new order ${event.payload.order_id} was created by user ${event.payload.user_id}. Total: ${amount}. Products: ${event.payload.items?.length || 0}.`,
+	html: `<h2>New order received</h2><p>Order <strong>${event.payload.order_id}</strong> was created by user ${event.payload.user_id}.</p><p>Total: <strong>${amount}</strong></p><p>Products: <strong>${event.payload.items?.length || 0}</strong></p>`,
   });
   await redis.set(key, "1", "EX", 7 * 24 * 60 * 60, "NX");
   console.info(JSON.stringify({
     message: "order email sent",
     event_id: event.event_id,
-    to: event.payload.customer_email,
+	to: event.payload.admin_email,
     message_id: delivery.messageId,
     accepted: delivery.accepted,
     rejected: delivery.rejected,

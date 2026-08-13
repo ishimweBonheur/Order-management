@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/order-service/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 var (
@@ -21,14 +22,14 @@ type Repository interface {
 	List(context.Context, *uuid.UUID) ([]model.Order, error)
 	ByID(context.Context, uuid.UUID) (*model.Order, error)
 	UpdateStatus(context.Context, uuid.UUID, string) (*model.Order, error)
-	UserEmail(context.Context, uuid.UUID) (string, error)
+	AdminEmail(context.Context) (string, error)
 }
 type Postgres struct{ db *pgxpool.Pool }
 
 func NewPostgres(db *pgxpool.Pool) *Postgres { return &Postgres{db: db} }
-func (r *Postgres) UserEmail(ctx context.Context, userID uuid.UUID) (string, error) {
+func (r *Postgres) AdminEmail(ctx context.Context) (string, error) {
 	var email string
-	err := r.db.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, userID).Scan(&email)
+	err := r.db.QueryRow(ctx, `SELECT email FROM users WHERE role='admin'`).Scan(&email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
 	}

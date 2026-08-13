@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/order-service/internal/model"
@@ -26,17 +27,29 @@ func identity(r *http.Request) (uuid.UUID, string, bool) {
 }
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Items []model.CreateItem `json:"items"`
+		Items []struct {
+			ProductID string `json:"product_id"`
+			Quantity  int    `json:"quantity"`
+		} `json:"items"`
 	}
 	if !api.DecodeJSON(w, r, &req) {
 		return
+	}
+	items := make([]model.CreateItem, 0, len(req.Items))
+	for index, item := range req.Items {
+		productID, err := uuid.Parse(item.ProductID)
+		if err != nil {
+			api.Error(w, http.StatusBadRequest, "INVALID_PRODUCT_ID", fmt.Sprintf("items[%d].product_id is not a valid UUID", index))
+			return
+		}
+		items = append(items, model.CreateItem{ProductID: productID, Quantity: item.Quantity})
 	}
 	uid, _, ok := identity(r)
 	if !ok {
 		api.Error(w, 401, "UNAUTHORIZED", "Authentication is required")
 		return
 	}
-	o, err := h.s.Create(r.Context(), uid, req.Items)
+	o, err := h.s.Create(r.Context(), uid, items)
 	if err != nil {
 		api.Error(w, 400, "ORDER_CREATION_FAILED", err.Error())
 		return

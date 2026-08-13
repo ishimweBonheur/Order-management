@@ -90,6 +90,10 @@ func (h *Handler) AssignRole(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, http.StatusNotFound, "USER_NOT_FOUND", "User was not found")
 		return
 	}
+	if errors.Is(err, repository.ErrAdminExists) {
+		api.Error(w, http.StatusConflict, "ADMIN_EXISTS", "Only one admin is allowed")
+		return
+	}
 	if err != nil {
 		api.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "An internal error occurred")
 		return

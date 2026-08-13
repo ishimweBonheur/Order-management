@@ -9,5 +9,6 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX idx_users_email ON users (LOWER(email));
+CREATE UNIQUE INDEX idx_users_single_admin ON users ((role)) WHERE role = 'admin';
 -- +goose Down
 DROP TABLE IF EXISTS users;
