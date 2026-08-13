@@ -1,0 +1,90 @@
+services:
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.28.1
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./docs/openapi.yaml:/spec/openapi.yaml:ro
+    ports: ["8080:8080"]
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: order_management
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d order_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  kafka:
+    image: apache/kafka:4.0.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:29093,PLAINTEXT_HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  kafka-init:
+    image: apache/kafka:4.0.0
+    depends_on:
+      kafka: {condition: service_healthy}
+    command: ["/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "kafka:29092", "--create", "--if-not-exists", "--topic", "order.created", "--partitions", "1", "--replication-factor", "1"]
+  auth-service:
+    build: {context: ./auth-service, dockerfile: Dockerfile}
+    environment: &common
+      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-development-password}@postgres:5432/order_management?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-replace-this-development-secret-32-chars}
+    ports: ["8081:8081"]
+    depends_on: {postgres: {condition: service_healthy}}
+  product-service:
+    build: {context: ./product-service, dockerfile: Dockerfile}
+    environment:
+      <<: *common
+      PORT: "8082"
+      REDIS_URL: redis:6379
+      KAFKA_BROKERS: kafka:29092
+    ports: ["8082:8082"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on: {postgres: {condition: service_healthy}, redis: {condition: service_healthy}}
+  order-service:
+    build: {context: ./order-service, dockerfile: Dockerfile}
+    environment:
+      <<: *common
+      KAFKA_BROKERS: kafka:29092
+    ports: ["8083:8083"]
+    depends_on: {postgres: {condition: service_healthy}, kafka-init: {condition: service_completed_successfully}}
+  notification-service:
+    build: {context: ./notification-service, dockerfile: Dockerfile}
+    environment:
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:29092
+    ports: ["8084:8084"]
+    restart: unless-stopped
+    depends_on: {redis: {condition: service_healthy}, kafka-init: {condition: service_completed_successfully}}
+volumes:
+  postgres_data:

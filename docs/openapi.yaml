@@ -1,0 +1,387 @@
+openapi: 3.0.3
+info:
+  title: Order Management API
+  version: 1.0.0
+  description: API reference for the Auth, Product, and Order microservices.
+tags:
+  - name: Auth
+  - name: Products
+  - name: Orders
+  - name: Admin
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a customer
+      servers: [{url: 'http://localhost:8081'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterRequest'}
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      servers: [{url: 'http://localhost:8081'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Token'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current user
+      servers: [{url: 'http://localhost:8081'}]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      servers: [{url: 'http://localhost:8082'}]
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/Limit'}
+        - name: category
+          in: query
+          schema: {type: string}
+        - name: search
+          in: query
+          schema: {type: string}
+        - name: sort
+          in: query
+          schema: {type: string}
+        - name: order
+          in: query
+          schema: {type: string, enum: [asc, desc]}
+      responses:
+        '200':
+          description: Paginated products
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductList'}
+    post:
+      tags: [Products, Admin]
+      summary: Create a product
+      servers: [{url: 'http://localhost:8082'}]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductInput'}
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /products/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      tags: [Products]
+      summary: Get a product
+      servers: [{url: 'http://localhost:8082'}]
+      responses:
+        '200':
+          description: Product
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Products, Admin]
+      summary: Update a product
+      servers: [{url: 'http://localhost:8082'}]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductInput'}
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Products, Admin]
+      summary: Delete a product
+      servers: [{url: 'http://localhost:8082'}]
+      security: [{bearerAuth: []}]
+      responses:
+        '204': {description: Product deleted}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create an order
+      servers: [{url: 'http://localhost:8083'}]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateOrderRequest'}
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    get:
+      tags: [Orders]
+      summary: List the current user's orders
+      servers: [{url: 'http://localhost:8083'}]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /orders/{id}:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    get:
+      tags: [Orders]
+      summary: Get an order
+      servers: [{url: 'http://localhost:8083'}]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /admin/orders:
+    get:
+      tags: [Admin]
+      summary: List all orders
+      servers: [{url: 'http://localhost:8083'}]
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderList'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /admin/orders/{id}/status:
+    parameters:
+      - {$ref: '#/components/parameters/Id'}
+    put:
+      tags: [Admin]
+      summary: Update an order status
+      servers: [{url: 'http://localhost:8083'}]
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {$ref: '#/components/schemas/OrderStatus'}
+      responses:
+        '200':
+          description: Order updated
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    Page:
+      name: page
+      in: query
+      schema: {type: integer, minimum: 1, default: 1}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: Admin role required
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: {type: string, example: Ada Lovelace}
+        email: {type: string, format: email, example: ada@example.com}
+        password: {type: string, format: password, minLength: 8, example: secure-password}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email, example: ada@example.com}
+        password: {type: string, format: password, example: secure-password}
+    Token:
+      type: object
+      required: [access_token, token_type]
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, example: Bearer}
+    User:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        email: {type: string, format: email}
+        role: {type: string, enum: [customer, admin]}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    ProductInput:
+      type: object
+      required: [name, description, price, stock, category]
+      properties:
+        name: {type: string, example: Mechanical Keyboard}
+        description: {type: string}
+        price: {type: number, format: double, minimum: 0, example: 99.99}
+        stock: {type: integer, minimum: 0, example: 25}
+        category: {type: string, example: peripherals}
+    Product:
+      allOf:
+        - type: object
+          properties:
+            id: {type: string, format: uuid}
+        - {$ref: '#/components/schemas/ProductInput'}
+        - type: object
+          properties:
+            created_at: {type: string, format: date-time}
+            updated_at: {type: string, format: date-time}
+    ProductList:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Product'}
+        pagination:
+          type: object
+          properties:
+            page: {type: integer}
+            limit: {type: integer}
+            total: {type: integer}
+            total_pages: {type: integer}
+    CreateOrderRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [product_id, quantity]
+            properties:
+              product_id: {type: string, format: uuid}
+              quantity: {type: integer, minimum: 1}
+    OrderStatus:
+      type: string
+      enum: [pending, confirmed, processing, completed, cancelled]
+    OrderItem:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        order_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        quantity: {type: integer}
+        unit_price: {type: number, format: double}
+    Order:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        user_id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/OrderStatus'}
+        total_amount: {type: number, format: double}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/OrderItem'}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    OrderList:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {$ref: '#/components/schemas/Order'}
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: {type: string}
+            message: {type: string}
