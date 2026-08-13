@@ -21,10 +21,19 @@ type Repository interface {
 	List(context.Context, *uuid.UUID) ([]model.Order, error)
 	ByID(context.Context, uuid.UUID) (*model.Order, error)
 	UpdateStatus(context.Context, uuid.UUID, string) (*model.Order, error)
+	UserEmail(context.Context, uuid.UUID) (string, error)
 }
 type Postgres struct{ db *pgxpool.Pool }
 
 func NewPostgres(db *pgxpool.Pool) *Postgres { return &Postgres{db: db} }
+func (r *Postgres) UserEmail(ctx context.Context, userID uuid.UUID) (string, error) {
+	var email string
+	err := r.db.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, userID).Scan(&email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return email, err
+}
 func (r *Postgres) Create(ctx context.Context, userID uuid.UUID, input []model.CreateItem) (order *model.Order, err error) {
 	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {

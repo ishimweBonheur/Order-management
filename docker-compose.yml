@@ -45,6 +45,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports: ["8090:8080"]
+    depends_on:
+      kafka: {condition: service_healthy}
   kafka-init:
     image: apache/kafka:4.0.0
     depends_on:
@@ -83,6 +91,12 @@ services:
     environment:
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:29092
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER in .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}
+      EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in .env}
     ports: ["8084:8084"]
     restart: unless-stopped
     depends_on: {redis: {condition: service_healthy}, kafka-init: {condition: service_completed_successfully}}

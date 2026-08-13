@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/model"
 	"sync"
+	"time"
 )
 
 type Memory struct {
@@ -42,5 +43,17 @@ func (r *Memory) ByID(_ context.Context, id uuid.UUID) (*model.User, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
+	return &u, nil
+}
+func (r *Memory) UpdateRole(_ context.Context, id uuid.UUID, role string) (*model.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	u.Role = role
+	u.UpdatedAt = time.Now().UTC()
+	r.users[id] = u
 	return &u, nil
 }

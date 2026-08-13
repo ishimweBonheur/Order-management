@@ -19,6 +19,7 @@ type UserRepository interface {
 	Create(context.Context, *model.User) error
 	ByEmail(context.Context, string) (*model.User, error)
 	ByID(context.Context, uuid.UUID) (*model.User, error)
+	UpdateRole(context.Context, uuid.UUID, string) (*model.User, error)
 }
 type Postgres struct{ db *pgxpool.Pool }
 
@@ -47,4 +48,7 @@ func (r *Postgres) ByEmail(ctx context.Context, email string) (*model.User, erro
 }
 func (r *Postgres) ByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	return scanUser(r.db.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE id=$1`, id))
+}
+func (r *Postgres) UpdateRole(ctx context.Context, id uuid.UUID, role string) (*model.User, error) {
+	return scanUser(r.db.QueryRow(ctx, `UPDATE users SET role=$2,updated_at=NOW() WHERE id=$1 RETURNING `+userColumns, id, role))
 }

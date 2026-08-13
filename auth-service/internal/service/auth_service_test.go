@@ -47,3 +47,18 @@ func TestRegistrationAndLoginValidation(t *testing.T) {
 		t.Fatalf("expected invalid credentials, got %v", err)
 	}
 }
+
+func TestAssignRole(t *testing.T) {
+	svc := New(repository.NewMemory(), "test-secret-that-is-at-least-32-characters", time.Hour)
+	user, err := svc.Register(context.Background(), "Alice", "alice@example.com", "password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := svc.AssignRole(context.Background(), user.ID, " ADMIN ")
+	if err != nil || updated.Role != "admin" {
+		t.Fatalf("unexpected role update: user=%+v err=%v", updated, err)
+	}
+	if _, err = svc.AssignRole(context.Background(), user.ID, "owner"); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected invalid role error, got %v", err)
+	}
+}

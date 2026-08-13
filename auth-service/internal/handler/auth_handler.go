@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/platform/api"
 	sharedauth "github.com/ishimweBonheur/order-management/auth-service/internal/platform/auth"
@@ -64,6 +65,33 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	u, err := h.service.Me(r.Context(), id)
 	if err != nil {
 		api.Error(w, http.StatusNotFound, "USER_NOT_FOUND", "User was not found")
+		return
+	}
+	api.JSON(w, http.StatusOK, u)
+}
+func (h *Handler) AssignRole(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		api.Error(w, http.StatusBadRequest, "INVALID_USER_ID", "User ID is invalid")
+		return
+	}
+	var req struct {
+		Role string `json:"role"`
+	}
+	if !api.DecodeJSON(w, r, &req) {
+		return
+	}
+	u, err := h.service.AssignRole(r.Context(), id, req.Role)
+	if errors.Is(err, service.ErrInvalidInput) {
+		api.Error(w, http.StatusBadRequest, "INVALID_ROLE", "Role must be customer or admin")
+		return
+	}
+	if errors.Is(err, repository.ErrNotFound) {
+		api.Error(w, http.StatusNotFound, "USER_NOT_FOUND", "User was not found")
+		return
+	}
+	if err != nil {
+		api.Error(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "An internal error occurred")
 		return
 	}
 	api.JSON(w, http.StatusOK, u)

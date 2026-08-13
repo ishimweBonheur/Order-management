@@ -22,6 +22,9 @@ func (f *fakeRepo) UpdateStatus(_ context.Context, _ uuid.UUID, s string) (*mode
 	f.order.Status = s
 	return f.order, nil
 }
+func (f *fakeRepo) UserEmail(context.Context, uuid.UUID) (string, error) {
+	return "customer@example.com", nil
+}
 
 type fakePublisher struct{ called bool }
 

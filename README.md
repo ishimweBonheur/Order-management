@@ -11,6 +11,8 @@ A learning-oriented Go microservice backend with JWT authentication, PostgreSQL 
 
 Interactive API documentation is available at `http://localhost:8080` while the Compose stack is running. The source of truth is `docs/openapi.yaml`. Use the Swagger UI **Authorize** button with the access token returned by login.
 
+Kafka topics, messages, consumer groups, and broker details can be inspected in Kafka UI at `http://localhost:8090`.
+
 PostgreSQL initialization runs only when its volume is new. To rerun it, remove the Compose volume intentionally with `docker compose down -v` (this deletes local database data).
 
 ## Services and API
@@ -20,7 +22,7 @@ PostgreSQL initialization runs only when its volume is new. To rerun it, remove 
 | Auth | 8081 | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` |
 | Product | 8082 | CRUD `/products`; writes require an admin JWT; list supports `page`, `limit`, `category`, `search`, `sort`, `order` |
 | Order | 8083 | `POST/GET /orders`, `GET /orders/{id}`, admin list and status routes |
-| Notification | 8084 | Kafka `order.created` consumer and `/health` |
+| Notification | 8084 | Kafka `order.created` consumer, Nodemailer SMTP delivery, and `/health` |
 
 New registrations deliberately receive the `customer` role. Promote a development user using SQL: `UPDATE users SET role='admin' WHERE email='you@example.com';` Public role selection would be a privilege-escalation vulnerability.
 

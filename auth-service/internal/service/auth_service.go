@@ -57,3 +57,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 func (s *AuthService) Me(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	return s.repo.ByID(ctx, id)
 }
+func (s *AuthService) AssignRole(ctx context.Context, id uuid.UUID, role string) (*model.User, error) {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role != model.RoleAdmin && role != model.RoleCustomer {
+		return nil, ErrInvalidInput
+	}
+	return s.repo.UpdateRole(ctx, id, role)
+}

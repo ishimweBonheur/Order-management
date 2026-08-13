@@ -35,7 +35,11 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, items []model.Cr
 		return nil, err
 	}
 	if s.publisher != nil {
-		err = s.publisher.Publish(ctx, "order.created", map[string]any{"order_id": o.ID, "user_id": o.UserID, "total_amount": o.TotalAmount, "created_at": o.CreatedAt})
+		customerEmail, emailErr := s.repo.UserEmail(ctx, userID)
+		if emailErr != nil {
+			return o, emailErr
+		}
+		err = s.publisher.Publish(ctx, "order.created", map[string]any{"order_id": o.ID, "user_id": o.UserID, "customer_email": customerEmail, "total_amount": o.TotalAmount, "created_at": o.CreatedAt})
 	}
 	return o, err
 }

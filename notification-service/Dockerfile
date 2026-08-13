@@ -1,10 +1,9 @@
-FROM golang:1.26-alpine AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -o /notification-api ./cmd/api
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /notification-api /notification-api
+FROM node:22-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+ENV NODE_ENV=production
 EXPOSE 8084
-ENTRYPOINT ["/notification-api"]
+USER node
+CMD ["node", "src/index.js"]

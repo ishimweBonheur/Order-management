@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/ishimweBonheur/order-management/order-service/internal/config"
 	"github.com/ishimweBonheur/order-management/order-service/internal/handler"
 	"github.com/ishimweBonheur/order-management/order-service/internal/messaging"
@@ -29,6 +30,12 @@ func main() {
 	producer := messaging.New(cfg.KafkaBrokers, cfg.KafkaTopic)
 	h := handler.New(service.New(repository.NewPostgres(db), producer))
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"http://localhost:8080", "http://localhost:3000", "http://localhost:5173"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
+		MaxAge:         300,
+	}))
 	r.Get("/health", handler.Health)
 	r.Group(func(r chi.Router) {
 		r.Use(sharedauth.Middleware(cfg.JWTSecret))
