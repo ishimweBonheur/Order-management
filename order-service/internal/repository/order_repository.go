@@ -19,7 +19,7 @@ var (
 
 type Repository interface {
 	Create(context.Context, uuid.UUID, []model.CreateItem) (*model.Order, error)
-	List(context.Context, *uuid.UUID) ([]model.Order, error)
+	List(context.Context, *uuid.UUID, int, int) ([]model.Order, int, error)
 	ByID(context.Context, uuid.UUID) (*model.Order, error)
 	UpdateStatus(context.Context, uuid.UUID, string) (*model.Order, error)
 	AdminEmail(context.Context) (string, error)
@@ -84,28 +84,33 @@ func (r *Postgres) Create(ctx context.Context, userID uuid.UUID, input []model.C
 	err = tx.Commit(ctx)
 	return order, err
 }
-func (r *Postgres) List(ctx context.Context, userID *uuid.UUID) ([]model.Order, error) {
-	q := `SELECT id,user_id,status,total_amount,created_at,updated_at FROM orders`
+func (r *Postgres) List(ctx context.Context, userID *uuid.UUID, page, limit int) ([]model.Order, int, error) {
+	where := ""
 	args := []any{}
 	if userID != nil {
-		q += ` WHERE user_id=$1`
+		where = ` WHERE user_id=$1`
 		args = append(args, *userID)
 	}
-	q += ` ORDER BY created_at DESC`
+	var total int
+	if err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM orders`+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	args = append(args, limit, (page-1)*limit)
+	q := `SELECT id,user_id,status,total_amount,created_at,updated_at FROM orders` + where + fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args))
 	rows, err := r.db.Query(ctx, q, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	out := []model.Order{}
 	for rows.Next() {
 		var o model.Order
 		if err = rows.Scan(&o.ID, &o.UserID, &o.Status, &o.TotalAmount, &o.CreatedAt, &o.UpdatedAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		out = append(out, o)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 func (r *Postgres) ByID(ctx context.Context, id uuid.UUID) (*model.Order, error) {
 	var o model.Order

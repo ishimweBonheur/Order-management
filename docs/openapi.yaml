@@ -190,6 +190,9 @@ paths:
       tags: [Orders]
       summary: List the current user's orders
       security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/Limit'}
       responses:
         '200':
           description: Orders
@@ -217,6 +220,9 @@ paths:
       tags: [Admin]
       summary: List all orders
       security: [{bearerAuth: []}]
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/Limit'}
       responses:
         '200':
           description: Orders

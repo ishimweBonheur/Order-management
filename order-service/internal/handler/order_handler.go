@@ -11,6 +11,7 @@ import (
 	"github.com/ishimweBonheur/order-management/order-service/internal/repository"
 	"github.com/ishimweBonheur/order-management/order-service/internal/service"
 	"net/http"
+	"strconv"
 )
 
 type Handler struct{ s *service.Service }
@@ -70,12 +71,22 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if role != "admin" {
 		filter = &uid
 	}
-	orders, err := h.s.List(r.Context(), filter)
+	page, limit := 1, 20
+	if value, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && value > 0 {
+		page = value
+	}
+	if value, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && value > 0 {
+		limit = value
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	orders, total, err := h.s.List(r.Context(), filter, page, limit)
 	if err != nil {
 		api.Error(w, 500, "INTERNAL_SERVER_ERROR", "An internal error occurred")
 		return
 	}
-	api.JSON(w, 200, map[string]any{"data": orders})
+	api.JSON(w, 200, map[string]any{"data": orders, "pagination": map[string]int{"page": page, "limit": limit, "total": total, "total_pages": (total + limit - 1) / limit}})
 }
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))

@@ -43,8 +43,8 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, items []model.Cr
 	}
 	return o, err
 }
-func (s *Service) List(ctx context.Context, userID *uuid.UUID) ([]model.Order, error) {
-	return s.repo.List(ctx, userID)
+func (s *Service) List(ctx context.Context, userID *uuid.UUID, page, limit int) ([]model.Order, int, error) {
+	return s.repo.List(ctx, userID, page, limit)
 }
 func (s *Service) Get(ctx context.Context, id, userID uuid.UUID, isAdmin bool) (*model.Order, error) {
 	o, err := s.repo.ByID(ctx, id)

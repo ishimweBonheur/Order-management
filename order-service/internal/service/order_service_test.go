@@ -20,8 +20,8 @@ func (f *fakeRepo) Create(_ context.Context, u uuid.UUID, i []model.CreateItem) 
 	f.order = &model.Order{ID: uuid.New(), UserID: u, Status: model.StatusPending, Items: items, CreatedAt: time.Now()}
 	return f.order, nil
 }
-func (f *fakeRepo) List(context.Context, *uuid.UUID) ([]model.Order, error) {
-	return []model.Order{*f.order}, nil
+func (f *fakeRepo) List(context.Context, *uuid.UUID, int, int) ([]model.Order, int, error) {
+	return []model.Order{*f.order}, 1, nil
 }
 func (f *fakeRepo) ByID(context.Context, uuid.UUID) (*model.Order, error) { return f.order, nil }
 func (f *fakeRepo) UpdateStatus(_ context.Context, _ uuid.UUID, s string) (*model.Order, error) {
