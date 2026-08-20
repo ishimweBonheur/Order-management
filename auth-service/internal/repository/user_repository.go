@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/model"
 	"github.com/jackc/pgx/v5"

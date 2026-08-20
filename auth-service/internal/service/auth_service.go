@@ -3,14 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"net/mail"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/model"
 	sharedauth "github.com/ishimweBonheur/order-management/auth-service/internal/platform/auth"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/repository"
 	"golang.org/x/crypto/bcrypt"
-	"net/mail"
-	"strings"
-	"time"
 )
 
 var (

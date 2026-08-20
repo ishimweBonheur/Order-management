@@ -2,13 +2,14 @@ package handler
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/platform/api"
 	sharedauth "github.com/ishimweBonheur/order-management/auth-service/internal/platform/auth"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/repository"
 	"github.com/ishimweBonheur/order-management/auth-service/internal/service"
-	"net/http"
 )
 
 type Handler struct{ service *service.AuthService }
